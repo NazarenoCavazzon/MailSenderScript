@@ -1,4 +1,4 @@
-# MailScript Sender
+# MailScript to Send Mails
 
 
 > This is a Mail Script as the name implies that allows you to introduce excels that contains Mails and data and use that data to send an Email to each one of those Mails using data from the others columns in the Excel.
