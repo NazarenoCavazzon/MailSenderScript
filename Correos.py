@@ -1,18 +1,39 @@
 import os
-from os import walk
+import docx
+import shutil
+import codecs
 import smtplib
 import pandas as pd
-import shutil
-import docx
+from os import walk
 from getpass import getpass
+from os.path import basename
+from email.mime.text import MIMEText
+from email.message import EmailMessage
+from cryptography.fernet import Fernet
+from email.mime.multipart import MIMEMultipart
+from email.utils import COMMASPACE, formatdate
+from email.mime.application import MIMEApplication
 
 # ------------------------------------------VARIABLES------------------------------------------
 
 lines = '-'*60
+autosave = ""
+loginText = ""
 optionLine = "Select an Option: "
+goBackOption = "0_ Go back"
+htmlSelected = ''
 option = 0
+outOption1 = 0
+outOption2 = 0
+outOption3 = 0
+outOption4 = 0
 config = False
 empty = False
+login = False
+data_filesRemaining = []
+attachmentSelected = 0
+attachmentsSelected = []
+numbers = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
 abc = ["A", "B", "C", "D", "E", "F", "G", "H",
        "I", "J", "K", "L", "M", "N", "O", "P",
        "Q", "R", "S", "T", "U", "V", "X", "Y", "Z"]
@@ -23,8 +44,42 @@ abc = ["A", "B", "C", "D", "E", "F", "G", "H",
 def clear(): return os.system("cls")
 
 
+def writeOptionData(*args):
+    textFile = os.path.abspath(os.path.join(
+        os.path.dirname(
+            __file__), 'Options.txt'))
+
+    with open(textFile, "w") as f:
+        for i in args:
+            f.write(i)
+
+
+def readText(index):
+    filePath = os.path.abspath(os.path.join(
+        os.path.dirname(
+            __file__), 'Options.txt'))
+
+    with open(filePath, "r") as f:
+        file = f.readlines()
+
+    return file[index]
+
+
+def writeInText(LineIndex, Text):
+    file = os.path.abspath(os.path.join(
+        os.path.dirname(
+            __file__), 'Options.txt'))
+
+    with open(file) as f:
+        lines = f.readlines()
+    lines[LineIndex] = Text
+    with open(file, "w") as f:
+        f.writelines(lines)
+
+
 def getFilesInFolder(path):
     f = []
+    names = []
     for (dirpath, dirnames, filenames) in walk(path):
         f.extend(filenames)
         names = filenames
@@ -50,6 +105,15 @@ def getDocsInFolder(path):
             count.append(file)
     return count
 
+def getHTMLSInFolder(path):
+    count = []
+    files = getFilesInFolder(path)
+    for file in files:
+        file = str(file)
+        name, extension = os.path.splitext(path+file)
+        if extension == ".html":
+            count.append(file)
+    return count
 
 def checkExcelInFolder(path):
     count = []
@@ -67,6 +131,11 @@ def createTextFile(name):
     txt.close()
 
 
+def createOptionsText(path):
+    txt = open(path, 'r')
+    txt.close()
+
+
 def createFolderIN(path, name):
     try:
         os.chdir(path)
@@ -77,7 +146,8 @@ def createFolderIN(path, name):
 
 def createFolderON(name):
     try:
-        path = os.getcwd()
+        path = os.path.dirname(
+            __file__)
         os.chdir(path)
         os.makedirs(name)
     except:
@@ -91,11 +161,9 @@ def removeTextFiles(*args):
 
 def getDataFrom():
 
-    excelsFolder = os.path.abspath(os.path.join(os.path.dirname(
-        __file__), '..', 'MailScript', 'Excel Repository'))
-
-    # Transform the excelFolder string into a raw string to not have problems with the document reader
-    excelsFolder = r"{}".format(excelsFolder)
+    excelsFolder = os.path.abspath(
+        os.path.join(os.path.dirname(
+            __file__), 'Excel Repository'))
 
     excelsInFolder = checkExcelInFolder(excelsFolder)
 
@@ -110,6 +178,9 @@ def getDataFrom():
     clear()
 
     for excel in excelsInFolder:
+        excelsFolder = os.path.abspath(
+            os.path.join(os.path.dirname(
+                __file__), 'Excel Repository'))
         error = False
         clear()
         print(lines)
@@ -118,8 +189,17 @@ def getDataFrom():
         print("1_ Yes")
         print("2_ No")
         print(lines)
-        option = int(input(optionLine))
-
+        try:
+            option = int(input(optionLine))
+        except:
+            clear()
+            print(lines)
+            print("Get data from", excel+'?')
+            print(lines)
+            print("1_ Yes")
+            print("2_ No")
+            print(lines)
+            option = int(input("Select a correct option: "))
         if option > 2 or option < 1:
             error = True
 
@@ -142,23 +222,21 @@ def getDataFrom():
             pass
 
     data_dir = os.path.abspath(os.path.join(os.path.dirname(
-        __file__), '..', 'MailScript', 'Data'))
+        __file__), 'Data'))
 
     for ex in excelSelected:
-        excelFile = os.path.abspath(os.path.join(os.path.dirname(
-            __file__), '..', 'MailScript', 'Excel Repository', ex))
+        excelFile = os.path.abspath(os.path.join(
+            os.path.dirname(
+                __file__), 'Excel Repository', ex))
 
         excelFile = r"{}".format(excelFile)
-
-        data_dir = os.path.abspath(os.path.join(os.path.dirname(
-            __file__), '..', 'MailScript', 'Data'))
 
         ex = ex[:len(ex)-5]
 
         createFolderIN(data_dir, ex)
 
         excelFolder = os.path.abspath(os.path.join(os.path.dirname(
-            __file__), '..', 'MailScript', 'Data', ex))
+            __file__), "Data", ex))
 
         cont = 0
         text_file = ""
@@ -182,8 +260,8 @@ def getDataFrom():
                 if cont == 0:
                     l = len(var)
                     rem_last = var[:l-1]
-                    createTextFile(rem_last)
-                    text_file = rem_last+".txt"
+                    createTextFile(rem_last.replace(" ", ""))
+                    text_file = rem_last.replace(" ", "")+".txt"
                     file_list.append(str(text_file))
                     cont = 1
                 else:
@@ -205,16 +283,27 @@ def getDataFrom():
         os.remove(".txt")
 
 
-def enter(mail, password):
+def enter():
+    succesConection = True
+    clear()
+    print(lines)
+    print("Login with your gmail")
+    print(lines)
+    mail = input("Mail: ")
+    password = getpass()
+    print(lines)
     try:
         # Inicio de sesion
-        conexion.login(user=mail, password=password)
+        conection.login(user=mail, password=password)
         print("Valid Credentials")
-        return True
 
     except:
         input("Wrong Credentials... ")
-        return False
+        succesConection = False
+
+    while succesConection == False:
+        enter()
+    return mail, password
 
 
 def removeExtensions(array):
@@ -227,49 +316,48 @@ def removeExtensions(array):
 
 
 def printArray(array):
+    array_numbers = 0
     for i, j in enumerate(array):
         print(str(i+1)+'_ '+str(j))
+        array_numbers += 1
+    return array_numbers
 
 
 def dataBase():
     mainPath = os.path.abspath(os.path.join(os.path.dirname(
-        __file__), '..', 'MailScript', 'Data'))
+        __file__), 'Data'))
     return getFoldersInFolder(mainPath)
-
-
-def sendMail(sender, reciever):
-    subject = 'Test'
-    body = 'I wanna go to europe'
-    msg = f'Subject: {subject}\n\n{body}'
-    conexion.sendmail(sender, reciever, msg)
 
 
 def sumTextToList(dataSelectedFolder, *args):
     dataList = []
     array = []
-    for i in args:  # ["Region.txt", "First Name.txt"], ["Region.txt", "First Name.txt"]
-        # array [["Region.txt", "First Name.txt"], ["Region.txt", "First Name.txt"]]
+    for i in args:
         array.append(i)
-    # ["Region.txt", "First Name.txt"], ["Region.txt", "First Name.txt"]
     for textFiles in array:
-        path = os.path.abspath(os.path.join(os.path.dirname(
-            __file__), '..', 'MailScript', 'Data', dataSelectedFolder, textFiles))
+        path = os.path.abspath(os.path.join(
+            os.path.dirname(
+                __file__), 'Data', dataSelectedFolder, textFiles))
         text = open(path, "r").readlines()
         for lines in textFiles:
             dataList.append(lines)
+        text.close()
     return print(dataList)
 
 
-def sendMassiveMails(selectedDataBase, textFiles, wordFile, mails, mail):
+def sendMassiveMails(selectedDataBase, textFiles, wordFile, mails, mail, attachmentsSelected):
     textFilesWE = removeExtensions(textFiles)
+    body = ""
     allFiles = []
     mailWT = []
     number = 0
-    mails = path_data = os.path.abspath(os.path.join(os.path.dirname(
-        __file__), '..', 'MailScript', 'Data', selectedDataBase, mails))
+    mails = path_data = os.path.abspath(os.path.join(
+        os.path.dirname(
+            __file__), 'Data', selectedDataBase, mails))
     for file in textFiles:
-        file = os.path.abspath(os.path.join(os.path.dirname(
-            __file__), '..', 'MailScript', 'Data', selectedDataBase, file))
+        file = os.path.abspath(os.path.join(
+            os.path.dirname(
+                __file__), 'Data', selectedDataBase, file))
         semiList = []
         file = open(file, "r").readlines()
         for word in file:
@@ -280,181 +368,476 @@ def sendMassiveMails(selectedDataBase, textFiles, wordFile, mails, mail):
         mailWT.append(i.strip())
     for mn, ma in enumerate(mailWT):
         first, second = readDocs(wordFile)
-        body = subject = msg = ' '
+        body = subject = msg = ''
         for i, j in enumerate(textFilesWE):
+            j.replace(".", "")
             for m, p in enumerate(first):
                 if p == '['+j+']':
-                    print("Primer parrafo", mn, ma)
                     first[m] = allFiles[i][mn]
+                if p == '['+j+'].':
+                    first[m] = allFiles[i][mn]+'.'
+                if p == '['+j+'],':
+                    first[m] = allFiles[i][mn]+','
             for f, g in enumerate(second):
                 if g == '['+j+']':
-                    print("Segundo parrafo", mn, ma)
                     second[f] = allFiles[i][mn]
-            print("For textFilesWE", mn, ma)
-        subject = u' '.join(first).encode('utf-8')
-        body = u' '.join(second).encode('utf-8')
-        msg = f'Subject: {subject}\n\n{body}'
-        conexion.sendmail(mail, ma, msg)
-        print("For mails", mn, ma)
+                if g == '['+j+'].':
+                    second[f] = allFiles[i][mn]+'.'
+                if g == '['+j+'],':
+                    second[f] = allFiles[i][mn]+','
+        subject = ' '.join(first)
+
+        for i, word in enumerate(second):
+            if word != "FLAG":
+                body += word + " "
+            else:
+                body += "<br>"
+
+        with codecs.open(htmlFolder, "r", "utf-8") as f:
+            codeHTML = f.read()
+
+        msg = MIMEMultipart()
+        msg['Subject'] = subject
+        msg['From'] = mail
+        msg['To'] = ma
+
+        #msg.attach(MIMEText(body.encode('utf-8'), _charset='utf-8'))
+        #msg = f'Subject: {subject.decode("utf-8")}\n\n{body.decode("utf-8")}'
+        for files in attachmentsSelected or []:
+            attachmentFile = os.path.abspath(os.path.join(os.path.dirname(__file__), 'Attachments', files))
+            with open(attachmentFile, "rb") as fil:
+                part = MIMEApplication(
+                    fil.read(),
+                    Name=basename(attachmentFile)
+                )
+            part['Content-Disposition'] = 'attachment; filename="%s"' % basename(files)
+            msg.attach(part)
+        part2 = MIMEText(codeHTML.format(body=body), 'html')
+        msg.attach(part2)
+        conection.sendmail(mail, ma, msg.as_string())
+    clear()
+    print(lines)
+    print("Mails Sended")
+    print(lines)
+    input("Press Enter to exit... ")
 
 
 def readDocs(docFile):
-    path = mainPath = os.path.abspath(os.path.join(os.path.dirname(
-        __file__), '..', 'MailScript', 'Mails', docFile))
+    paragraphsList = []
+    paragraphsSplited = []
+    totalParagraph = []
+    path = os.path.abspath(
+        os.path.join(os.path.dirname(
+            __file__), 'Mails', docFile))
     doc = docx.Document(path)
     firstParagraph = doc.paragraphs[0].text.split()
-    secondParagraph = doc.paragraphs[1].text.split()
-    return firstParagraph, secondParagraph
+    paragraphs = doc.paragraphs
+    for i,j in enumerate(paragraphs[1:]):
+        paragraphsList.append(doc.paragraphs[i+1].text +"\n")
+    for elements in paragraphsList:
+        paragraphsSplited.append(elements.split())
+    for i in paragraphsSplited:
+        i.append("FLAG")
+        for j in i:
+            totalParagraph.append(j)
+    return firstParagraph, totalParagraph
+
+def checkFolders(*args):
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+    folders = getFoldersInFolder(path)
+    for folder in args:
+        if folder not in folders:
+            createFolderON(folder)
 
 
 # ------------------------------------------START/SETUP------------------------------------------
 
 
-# Establecer conexion con el servidor de SMTP Gmail
-conexion = smtplib.SMTP(host='smtp.gmail.com', port=587)
-conexion.ehlo()
+try:
+    # Establecer conection con el servidor de SMTP Gmail
+    conection = smtplib.SMTP_SSL(host='smtp.gmail.com', port=465)
+except:
+    print("Check your wifi conection")
+os.chdir(os.path.dirname(
+    __file__))
 
-# Encriptacion TLS
-conexion.starttls()
+createTextFile("Options")
 
-createTextFile("Messssssssssssssi")
 
-createFolderON("Excel Repository")
-createFolderON("Data")
-createFolderON("Mails")
+
+if os.path.getsize("Options.txt") == 0:
+    criptoKey = Fernet.generate_key()
+    writeOptionData("firstTimeOption1 = True\n",
+                    "AutoSave = [Disabled]\n", "login=False\n", "Mail: \n", "Password: \n", "HTML \n", criptoKey.decode("utf-8"))
+
+if readText(5) != "HTML \n":
+    htmlSelected = readText(5)[:-1]
+
+if readText(3) != "Mail: \n" and readText(4) != "Password: \n":
+    crypter = Fernet(readText(-1).encode())
+    mail_encrypted = readText(3).encode()
+    password_encrypted = readText(4).encode()
+    mail = crypter.decrypt(mail_encrypted).decode()
+    password = crypter.decrypt(password_encrypted).decode()
+    conection.login(user=mail, password=password)
+    login = True
+
+autosave = readText(1)[:len(readText(1))-1]
+
+if readText(2) == "login=False\n":
+    loginText = "Login"
+else:
+    loginText = "Logout"
+
+if readText(1) == "AutoSave = [Disabled]\n":
+    savePassword = False
+elif readText(1) == "AutoSave = [Enabled]\n":
+    savePassword = True
+
+checkFolders("Excel Repository","Attachments","Data","Mails","Mails/html templates")
+
+#createFolderON("Excel Repository")
+#createFolderON("Attachments")
+#createFolderON("Data")
+#createFolderON("Mails")
+
+htmlFolder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'Mails','html templates', htmlSelected))
+htmlsFolder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'Mails','html templates'))
 
 
 # ------------------------------------------FUNCTIONS------------------------------------------
 while option != 5:
-    print(lines)
-    print("-----------------Welcome to the Mail Script-----------------")
-    print(lines)
-    print("Select any option")
-    print("1_ Upload an Excel file with Data")
-    print("2_ Send Mails")
-    print(lines)
-    option = int(input(optionLine))
+    outOption4 = 0
+    outOption3 = 0
+    outOption2 = 0
+    outOption1 = 0
+    clear()
+    menu = f'{lines}\n' \
+        '-----------------Welcome to the Mail Script-----------------\n'\
+        f'{lines}\n' \
+        '1_ Upload an Excel file with Data\n'\
+        '2_ Send Mails\n'\
+        '3_ Options\n'\
+        f'{lines}'\
 
+    loginMenu = f'{lines}\n' \
+        '------------------------Login Configs-----------------------\n'\
+        f'{lines}\n' \
+        f'1_ ' + autosave + '\n'\
+        '2_ Select HTML Template\n'\
+        f'{goBackOption}\n'\
+        f'{lines}'\
+
+    print(menu)
+    option = input(optionLine)
+    while option not in numbers[1:4]:
+        print(lines)
+        input("Select a correct option... ")
+        clear()
+        print(menu)
+        option = input(optionLine)
+    option = int(option)
     if option == 1:
-        print(lines)
-        print("Put your Excels in the Excel directory")
-        # print("")
-        print(lines)
-        input("Press enter to Confirm... ")
+        clear()
+        if readText(0) == 'firstTimeOption1 = True\n':
+            print(lines)
+            print("Put your Excels in the Excel directory")
+            # print("")
+            print(lines)
+            input("Press enter to Confirm... ")
+            writeInText(0, "firstTimeOption1 = False\n")
+        elif readText(0) == 'firstTimeOption1 = False\n':
+            pass
         getDataFrom()
         input("New Data Uploaded... ")
         clear()
 
-    if option == 2:
-        data_Files = []
-        error = False
-        clear()
-        print(lines)
-        print("Login with your gmail")
-        print(lines)
-        mail = input("Mail: ")
-        password = getpass()
-        print(lines)
-        succesConection = enter(mail, password)
+    elif option == 2:
 
-        while succesConection == False:
+        while outOption1 != 1:
+            outOption2 = 0
+            outOption3 = 0
+            outOption4 = 0
+            data_Files = []
+            error = False
             clear()
+
+            if login == False:
+                clear()
+                mail, password = enter()
+                login = True
+                print(lines)
+                input("Press enter to continue... ")
+                clear()
+
             print(lines)
-            print("Please Retry")
+            print("From what Excel Data base you want to import data")
             print(lines)
-            mail = input("Mail: ")
-            password = getpass()
+
+            dataOptions1 = printArray(dataBase())
+            print(goBackOption)
+
             print(lines)
-            succesConection = enter(mail, password)
+            dataBaseSelection = input(optionLine)
 
-        print(lines)
-        input("Press enter to continue... ")
-        clear()
-        print(lines)
-        print("From what Excel Data base you want to import data")
-        print(lines)
+            while dataBaseSelection not in numbers[:dataOptions1+1]:
+                print(lines)
+                input("Select a correct option... ")
+                clear()
+                print(lines)
+                print("From what Excel Data base you want to import data")
+                print(lines)
+                dataOptions1 = printArray(dataBase())
+                print(goBackOption)
+                print(lines)
+                dataBaseSelection = input(optionLine)
 
-        printArray(dataBase())
+            dataBaseSelection = int(dataBaseSelection)
 
-        print(lines)
-        dataBaseSelection = int(input(optionLine))
+            if dataBaseSelection == 0:
+                outOption1 = 1
+            else:
+                selectedDataBase = dataBase()[dataBaseSelection-1]
 
-        if dataBaseSelection > len(dataBase()) or dataBaseSelection < 1:
-            error = True
+                dataSelectedFolder = os.path.abspath(
+                    os.path.join(os.path.dirname(
+                        __file__), 'Data', selectedDataBase))
 
-        while error == True:
+                mailFolder = os.path.abspath(os.path.join(os.path.dirname(
+                    __file__), 'Mails'))
+
+                data_Files = getFilesInFolder(dataSelectedFolder)
+
+                while outOption2 != 1:
+                    outOption3 = 0
+                    outOption4 = 0
+                    clear()
+                    print(lines)
+                    print("Select what data file have the Mails")
+                    print(lines)
+                    dataOptions2 = printArray(data_Files)
+                    print(goBackOption)
+                    print(lines)
+                    email_textfile = input(optionLine)
+
+                    while email_textfile not in numbers[:dataOptions2+1]:
+                        print(lines)
+                        input("Select a correct option... ")
+                        clear()
+                        print(lines)
+                        print("Select what data file have the Mails")
+                        print(lines)
+                        dataOptions2 = printArray(data_Files)
+                        print(goBackOption)
+                        print(lines)
+                        email_textfile = input(optionLine)
+
+                    email_textfile = int(email_textfile)
+                    if email_textfile == 0:
+                        outOption2 = 1
+                    else:
+                        while outOption3 != 1:
+                            outOption4 = 0
+                            email_database = data_Files[email_textfile-1]
+                            for files in data_Files:
+                                data_filesRemaining.append(files)
+                            data_filesRemaining.remove(email_database)
+                            clear()
+                            data_FilesWE = []
+                            data_FilesWE = removeExtensions(data_filesRemaining)
+                            docsInMails = []
+                            print(lines)
+                            print("Data loaded succesfully, now you can write a Email in word or in a text file with the next variables")
+                            print(*data_FilesWE, sep=", ")
+                            print(lines)
+                            input("Press enter when you got your mail ready in the folder... ")
+                            docsInMails = getDocsInFolder(mailFolder)
+                            for i in docsInMails:
+                                if i[0] == "~" and i[1] == "$":
+                                    docsInMails.remove(i)
+                            clear()
+                            print(lines)
+                            print("Select the word document with the mail draft")
+                            print(lines)
+                            dataOptions3 = printArray(docsInMails)
+                            print(goBackOption)
+                            print(lines)
+                            wordSelection = input(optionLine)
+
+                            while wordSelection not in numbers[:dataOptions3+1]:
+                                print(lines)
+                                input("Select a correct option... ")
+                                clear()
+                                print(lines)
+                                print("Select the word document with the mail draft")
+                                print(lines)
+                                dataOptions3 = printArray(docsInMails)
+                                print(goBackOption)
+                                print(lines)
+                                wordSelection = input(optionLine)
+                            wordSelection = int(wordSelection)
+                            wordSelected = docsInMails[wordSelection-1]
+                            if wordSelection == 0:
+                                data_filesRemaining = []
+                                outOption3 = 1
+                            else:
+                                while outOption4 != 1:
+                                    clear()
+                                    print(lines)
+                                    print("If you want to send attachments put them in the attachments folder")
+                                    print(lines)
+                                    input("Press enter to continue... ")
+                                    attachmentsFolder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'Attachments'))
+                                    attachments = getFilesInFolder(attachmentsFolder)
+                                    if len(attachments) == 0:
+                                        print(lines)
+                                        print("0 attachments founded, sending Mails...")
+                                        print(lines)
+                                        sendMassiveMails(dataSelectedFolder, data_Files,
+                                                    wordSelected, email_database, mail)
+                                        outOption4 = 1
+                                        outOption3 = 1
+                                        outOption2 = 1
+                                        outOption1 = 1
+                                        break
+                                    else:
+                                        clear()
+                                        print(lines)
+                                        print("We found",len(attachments), "How many attachments you will send?")
+                                        print("Select 0 if you don't want to send an attachment")
+                                        print(lines)
+                                        howManyAtt = input("Number: ")
+                                        while howManyAtt not in numbers[:len(attachments)+1]:
+                                            print(lines)
+                                            input("Select a correct option... ")
+                                            clear()
+                                            print(lines)
+                                            print("How many attachments you will send?")
+                                            print("Select 0 if you don't want to send an attachment")
+                                            print(lines)
+                                            howManyAtt = input("Number: ")
+                                        howManyAtt = int(howManyAtt)
+                                        if howManyAtt == 0:
+                                            sendMassiveMails(dataSelectedFolder, data_Files,
+                                                        wordSelected, email_database, mail, attachmentsSelected)
+                                        else:
+                                            for files in range(howManyAtt):
+                                                clear()
+                                                print(lines)
+                                                print("Select the attachments")
+                                                print(lines)
+                                                dataOption4 = printArray(attachments)
+                                                print(goBackOption)
+                                                print(lines)
+                                                attachmentSelected = input(optionLine)
+
+                                                while attachmentSelected not in numbers[:dataOption4+1]:
+                                                    print(lines)
+                                                    input("Select a correct option... ")
+                                                    clear()
+                                                    print(lines)
+                                                    print("Select the attachments")
+                                                    print(lines)
+                                                    dataOption4 = printArray(attachments)
+                                                    print(goBackOption)
+                                                    print(lines)
+                                                    attachmentSelected = input(optionLine)
+
+                                                attachmentSelected = int(attachmentSelected)
+                                                if attachmentSelected == 0:
+                                                    sendMassiveMails(dataSelectedFolder, data_Files,
+                                                        wordSelected, email_database, mail, attachmentsSelected)
+                                                else:
+                                                    attachmentsSelected.append(attachments[attachmentSelected-1])
+                                                    attachments.remove(attachments[attachmentSelected-1])
+                                            sendMassiveMails(dataSelectedFolder, data_Files,
+                                                            wordSelected, email_database, mail, attachmentsSelected)
+                                        outOption4 = 1
+                                        outOption3 = 1
+                                        outOption2 = 1
+                                        outOption1 = 1
+
+    elif option == 3:
+        while outOption1 != 1:
+            outOption2 = 0
             clear()
-            print(lines)
-            print("Invalid Option, please select a valid number")
-            print(lines)
+            print(loginMenu)
+            optionLogin = input(optionLine)
+            while optionLogin not in numbers[0:3]:
+                print(lines)
+                input("Select a correct option... ")
+                clear()
+                print(loginMenu)
+                optionLogin = input(optionLine)
+            optionLogin = int(optionLogin)
 
-            printArray(dataBase())
+            if optionLogin ==0:
+                outOption1 = 1
+            if optionLogin == 1:
+                if readText(1) == "AutoSave = [Disabled]\n":
+                    savePassword = True
+                    writeInText(1, "AutoSave = [Enabled]\n")
+                    autosave = readText(1)[:len(readText(1))-1]
+                    if login == True:
+                        # Encrypting passwords and mails
+                        crypter = Fernet(readText(-1).encode())
+                        password_encrypted = crypter.encrypt(password.encode())
+                        mail_encrypted = crypter.encrypt(mail.encode())
+                        writeInText(3, mail_encrypted.decode("utf-8")+"\n")
+                        writeInText(4, password_encrypted.decode("utf-8")+"\n")
+                    else:
+                        mail, password = enter()
+                        crypter = Fernet(readText(-1).encode())
+                        password_encrypted = crypter.encrypt(password.encode())
+                        mail_encrypted = crypter.encrypt(mail.encode())
+                        writeInText(3, mail_encrypted.decode("utf-8")+"\n")
+                        writeInText(4, password_encrypted.decode("utf-8")+"\n")
+                        login = True
+                    input("Autosave Enabled... ")
+                    outOption1 = 1
 
-            print(lines)
-            dataBaseSelection = int(input(optionLine))
+                elif readText(1) == "AutoSave = [Enabled]\n":
+                    writeInText(1, "AutoSave = [Disabled]\n")
+                    writeInText(3, "Mail: \n")
+                    writeInText(4, "Password: \n")
+                    autosave = readText(1)[:len(readText(1))-1]
+                    input("Autosave Disabled... ")
+                    outOption1 = 1
 
-            if dataBaseSelection > 0 and dataBaseSelection < int(len(dataBase())+1):
-                error = False
-
-        selectedDataBase = dataBase()[dataBaseSelection-1]
-
-        dataSelectedFolder = os.path.abspath(os.path.join(os.path.dirname(
-            __file__), '..', 'MailScript', 'Data', selectedDataBase))
-
-        mailFolder = os.path.abspath(os.path.join(os.path.dirname(
-            __file__), '..', 'MailScript', 'Mails'))
-
-        data_Files = getFilesInFolder(dataSelectedFolder)
-
-        clear()
-        print(lines)
-        print("Select what data file have the Mails")
-        print(lines)
-        printArray(data_Files)
-        print(lines)
-        email_textfile = int(input(optionLine))
-        email_database = data_Files[email_textfile-1]
-        data_Files.remove(email_database)
-        clear()
-        data_FilesWE = []
-        data_FilesWE = removeExtensions(data_Files)
-        docsInMails = []
-        print(lines)
-        print("Data loaded succesfully, now you can write a Email in word or in a text file with the next variables")
-        print(*data_FilesWE, sep=", ")
-        print(lines)
-        input("Press enter when you got your mail ready in the folder... ")
-        docsInMails = getDocsInFolder(mailFolder)
-        for i in docsInMails:
-            if i[0] == "~" and i[1] == "$":
-                docsInMails.remove(i)
-        clear()
-        print(lines)
-        print("Select the word document with the mail draft")
-        print(lines)
-        printArray(docsInMails)
-        print(lines)
-        wordSelection = int(input(optionLine))
-        if wordSelection > len(dataBase()) or wordSelection < 1:
-            error = True
-
-        while error == True:
-            clear()
-            print(lines)
-            print("Invalid Option, please select a valid number")
-            print(lines)
-            printArray(docsInMails)
-            print(lines)
-            wordSelection = int(input(optionLine))
-
-            if wordSelection > 0 and wordSelection < int(len(docsInMails)+1):
-                error = False
-
-        wordSelected = docsInMails[wordSelection-1]
-        sendMassiveMails(dataSelectedFolder, data_Files,
-                         wordSelected, email_database, mail)
-        print(wordSelected)
-        print(data_Files)
-
-    if option == 2:
-        pass
+            elif optionLogin == 2:
+                while outOption2 != 1:
+                    clear()
+                    htmlFiles = getHTMLSInFolder(htmlsFolder)
+                    if len(htmlFiles) == 0:
+                        print(lines)
+                        print("Please put the HTML files in the folder")
+                        print(lines)
+                        input("Press enter to continue... ")
+                    else:
+                        print(lines)
+                        print("Select the template you want to use")
+                        print(lines)
+                        printArray(htmlFiles)
+                        print(goBackOption)
+                        print(lines)
+                        htmlTemplateSelected = input(optionLine)
+                        while htmlTemplateSelected not in numbers[0:len(htmlFiles)+1]:
+                            clear()
+                            print(lines)
+                            input("Select a correct option... ")
+                            print(lines)
+                            printArray(htmlFiles)
+                            print(goBackOption)
+                            print(lines)
+                            htmlTemplateSelected = input(optionLine)
+                        htmlTemplateSelected = int(htmlTemplateSelected)
+                        if htmlTemplateSelected == 0:
+                            outOption2 = 1
+                        else:
+                            while outOption2 != 1:
+                                htmlSelected = htmlFiles[htmlTemplateSelected-1]
+                                writeInText(5, htmlSelected+"\n")
+                                outOption1 = 1
+                                outOption2 = 1
+                            outOption1 = 1
+                            outOption2 = 1
