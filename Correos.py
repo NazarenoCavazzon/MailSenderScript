@@ -51,6 +51,9 @@ abc = ["A", "B", "C", "D", "E", "F", "G", "H",
 
 def clear(): return os.system("cls")
 
+def createTextFile(name):
+    txt = open(name+'.txt', 'a')
+    txt.close()
 
 def writeOptionData(*args):
     textFile = os.path.abspath(os.path.join(
