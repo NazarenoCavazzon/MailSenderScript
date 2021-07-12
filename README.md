@@ -36,6 +36,7 @@ This program was meant to send large ammounts of emails to a big data base of pe
 ## How To Use
 
 It is very easy to use, the program is going to tell you what you need to know to operate it.
+Here's a video: https://www.youtube.com/watch?v=1IbPdvBJJwc&t=1s
 
 [Back To The Top](#read-me-template)
 
@@ -87,6 +88,7 @@ I'm a System Engineer student and an Electronic Technician that loves to create 
 
 - Twitter - [@NCavazzon](https://twitter.com/jamesqquick)
 - LinkedIN - [Nazareno Cavazzon](https://www.linkedin.com/in/nazareno-cavazzon-6077a7194/)
+- Youtube - [Nazareno Cavazzon](https://www.youtube.com/channel/UCpB9Kio5LU6SDvj43jyNVxg)
 
 ![me](https://i.imgur.com/K0OwYFQ.jpg)
 
