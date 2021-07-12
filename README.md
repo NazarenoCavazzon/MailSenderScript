@@ -35,7 +35,6 @@ This program was meant to send large ammounts of emails to a big data base of pe
 
 ## How To Use
 
-It is very easy to use, the program is going to tell you what you need to know to operate it.
 Here's a video: https://www.youtube.com/watch?v=1IbPdvBJJwc&t=1s
 
 [Back To The Top](#read-me-template)
