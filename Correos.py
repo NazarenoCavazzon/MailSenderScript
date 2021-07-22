@@ -10,12 +10,9 @@ from os import walk
 import pandas as pd
 from getpass import getpass
 from os.path import basename
-from optparse import OptionParser
 from email.mime.text import MIMEText
-from email.message import EmailMessage
 from cryptography.fernet import Fernet
 from email.mime.multipart import MIMEMultipart
-from email.utils import COMMASPACE, formatdate
 from email.mime.application import MIMEApplication
 
 # ------------------------------------------VARIABLES------------------------------------------
